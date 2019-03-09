@@ -1,0 +1,2 @@
+include src/hiergp/fastexp/fastexp.pyx
+include src/hiergp/fastexp/fastexp.h
