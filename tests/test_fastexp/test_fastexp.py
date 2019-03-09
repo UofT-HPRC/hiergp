@@ -1,15 +1,18 @@
-""" Check values and input handling of fastexp
+"""Check values and input handling of fastexp
 """
 
-import hiergp.fastexp
 import numpy as np
 import pytest
 
+import hiergp.fastexp
+
+
 def test_integer():
     """Fastexp only accepts numpy arrays of doubles."""
-    A = np.array([1, 2, 3])
+    vec = np.array([1, 2, 3])
     with pytest.raises(ValueError):
-        hiergp.fastexp.fastexp(A)
+        hiergp.fastexp.fastexp(vec)
+
 
 def test_random():
     """Compare output of fastexp with numpy."""
