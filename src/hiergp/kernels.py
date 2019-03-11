@@ -4,9 +4,10 @@ A kernel class contains information used for evaluating a particular kernel
 function (covariance function) between different vectors.
 
 The kernel should manage its hyperparameters and the bounds on hyperparameters.
+Compositions of kernels should be managed by a Gaussian Process Model that
+contains both kernels.
 
-TODO:
-    * Use wrapper/mixin to seamlessly handle dict to vec conversion for kernels
+In this module the Squared Exponential and Linear Kernels are defined.
 """
 import logging
 
@@ -52,31 +53,23 @@ class SqKernel():
     :math:`k_s(x, x') = \\mu + \\sigma_f^2 \\exp(-\\frac{1}{2} \\sum_d^D
     \\frac{(x_d-x_d')^2}{\\lambda_d^2}).`
 
-    If the parameter noise is set, a diagonal noise is tracked that can be
-    added to the kernel matrix to model noisy data:
-
-    :math:`K(X, X) + \\sigma_n^2 I`
-
     Args:
         dims(int) : Number of dimensions in the data (:math:`D`)
         lbound(pair) : Lower, upper bounds for lengthscales in the primary
                        kernel
-        noise(optional, float) : Track noise parameter math:`\\sigma_n` of
-                                 the kernel.
     """
 
     def __init__(self,
                  dims,
-                 lbounds,
-                 noise=0.):
+                 lbounds):
 
         self.dims = dims
-        self.lbounds = lbounds
+        self.bounds = dict(lengthscales=lbounds,
+                           var=(1., 1.))
 
         # Initialize hyperparameters
         self.lengthscales = np.full(self.dims, lbounds[0])
         self.var = 1.
-        self.noise = noise
 
     def eval(self, vecs_1, vecs_2):
         """Evaluate the kernel.
@@ -120,30 +113,23 @@ class LinKernel():
     diagonal :math:`D \\times D` that contains the lengthscales
     :math:`\\lambda_d`.
 
-    If the parameter noise is set, a diagonal noise is tracked that can be
-    added to the kernel matrix to model noisy data:
-
-    :math:`K(X, X) + \\sigma_n^2 I`
-
     Args:
         dims(int) : Number of dimensions in the data (:math:`D`)
         lbound(pair) : Lower, upper bounds for lengthscales in the primary
                        kernel
-        noise(optional, float) : Track noise parameter math:`\\sigma_n` of
-                                 the kernel.
     """
 
     def __init__(self,
                  dims,
-                 lbounds,
-                 noise=0.):
+                 lbounds):
         self.dims = dims
         self.lbounds = lbounds
 
         # Initialize hyperparameters
         self.lengthscales = np.full(self.dims, lbounds[0])
+        self.bounds = dict(lengthscales=lbounds,
+                           var=(1., 1.))
         self.var = 1.
-        self.noise = noise
 
     def eval(self, vecs_1, vecs_2):
         """Evaluate the kernel.

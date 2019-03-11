@@ -30,8 +30,7 @@ def test_small_eval():
     num_dims = 5
     variance = 3.
 
-    # Adding a noise term should not affect direct evaluation of the kernel
-    model = hiergp.kernels.LinKernel(num_dims, (0.05, 1.), 0.1)
+    model = hiergp.kernels.LinKernel(num_dims, (0.05, 1.))
 
     # Test a single vector shape (1,5)
     # Lengthscales: small values force the kernel to be roughly identity
