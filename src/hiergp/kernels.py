@@ -50,7 +50,7 @@ class SqKernel():
 
     The primary covariance function is the squared exponential form:
 
-    :math:`k_s(x, x') = \\mu + \\sigma_f^2 \\exp(-\\frac{1}{2} \\sum_d^D
+    :math:`k_s(x, x') = \\sigma_f^2 \\exp(-\\frac{1}{2} \\sum_d^D
     \\frac{(x_d-x_d')^2}{\\lambda_d^2}).`
 
     Args:
@@ -71,16 +71,48 @@ class SqKernel():
         self.lengthscales = np.full(self.dims, lbounds[0])
         self.var = 1.
 
-    def eval(self, vecs_1, vecs_2):
+    def get_hypers(self):
+        """Get flattened hyperparameters and associated bounds.
+
+        Returns:
+            Tuple : (vector of current hyperparameters,
+                     list of associated bounds)
+        """
+        return (np.concatenate(([self.var], self.lengthscales)),
+                [self.bounds['var']] +
+                 [self.bounds['lengthscales'] for _ in self.lengthscales])
+
+    def put_hypers(self, hypers):
+        """Update all hyperparameters using a flattened vector.
+
+        Note: no bounds checking of hyperparameter values is done in this
+        function
+
+        Args:
+            hypers : vector of hyperparameters to insert
+        """
+        if len(hypers) != self.dims+1:
+            raise ValueError('Incorrect number of hyperparameters to insert') 
+
+        self.var = hypers[0]
+        self.lengthscales = hypers[1:self.dims+1]
+
+    def eval(self, vecs_1, vecs_2, no_var=False):
         """Evaluate the kernel.
 
         Args:
             vecs_1 (NxD array) : First matrix to compute with :math:`X`
             vecs_2 (NxD array) : Second matrix to compute with :math:`Y`
+            no_var (bool) : If True, return kernel without scaling factor
+                            :math:`\\sigma_f^2`
         """
-        return (self.var**2 *
-                sqdist(vecs_1 / self.lengthscales[:self.dims],
-                       vecs_2 / self.lengthscales[:self.dims]))
+
+        exp_distances = sqdist(vecs_1 / self.lengthscales[:self.dims],
+                               vecs_2 / self.lengthscales[:self.dims])
+        if no_var:
+            return exp_distances
+        else:
+            return self.var**2 * exp_distances
 
     def scale(self, vecs):
         """Evaluate the scale factor for each vector in vecs.
@@ -130,6 +162,32 @@ class LinKernel():
         self.bounds = dict(lengthscales=lbounds,
                            var=(1., 1.))
         self.var = 1.
+
+    def get_hypers(self):
+        """Get flattened hyperparameters and associated bounds.
+
+        Returns:
+            Tuple : (vector of current hyperparameters,
+                     list of associated bounds)
+        """
+        return (np.concatenate(([self.var], self.lengthscales)),
+                [self.bounds['var']] +
+                 [self.bounds['lengthscales'] for _ in self.lengthscales])
+
+    def put_hypers(self, hypers):
+        """Update all hyperparameters using a flattened vector.
+
+        Note: no bounds checking of hyperparameter values is done in this
+        function
+
+        Args:
+            hypers : vector of hyperparameters to insert
+        """
+        if len(hypers) != self.dims+1:
+            raise ValueError('Incorrect number of hyperparameters to insert') 
+
+        self.var = hypers[0]
+        self.lengthscales = hypers[1:self.dims+1]
 
     def eval(self, vecs_1, vecs_2):
         """Evaluate the kernel.

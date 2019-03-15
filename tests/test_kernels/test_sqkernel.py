@@ -84,3 +84,25 @@ def test_small_eval():
     assert np.allclose(result_12, expected_eval)
     assert np.allclose(result_21.T, expected_eval)
 
+def test_hypers():
+    """Check the get_hypers and put_hypers functions
+    """
+    num_points = 1
+    num_dims = 5
+    variance = 3.
+
+    model = hiergp.kernels.SqKernel(num_dims, (0.05, 1.))
+
+    hypers, bounds = model.get_hypers()
+    assert len(hypers) == len(bounds)
+    assert all([hyper >= bounds[i][0] or 
+                hyper <= bounds[i][1] for i, hyper in 
+                enumerate(hypers)])
+
+    # Update hyperparameters
+
+    hypers = np.array([10., 0.8, 0.9, 0.3, 0.25, 0.1])
+    model.put_hypers(hypers)
+
+    new_hypers, _ = model.get_hypers()
+    assert all(hypers == new_hypers)
