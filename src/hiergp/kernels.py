@@ -189,15 +189,21 @@ class LinKernel():
         self.var = hypers[0]
         self.lengthscales = hypers[1:self.dims+1]
 
-    def eval(self, vecs_1, vecs_2):
+    def eval(self, vecs_1, vecs_2, no_var=False):
         """Evaluate the kernel.
 
         Args:
             vecs_1 (NxD array) : First matrix to compute with :math:`X`
             vecs_2 (NxD array) : Second matrix to compute with :math:`Y`
+            no_var (bool) : If True, return kernel without scaling factor
+                            :math:`\\sigma_f^2`
         """
         scaled_vec = np.dot(vecs_1, np.diag(self.lengthscales))
-        return self.var**2*np.dot(scaled_vec, vecs_2.T)
+        lin_distances = np.dot(scaled_vec, vecs_2.T)
+        if no_var:
+            return lin_distances
+        else:
+            return self.var**2 * lin_distances
 
     def scale(self, vecs):
         """Evaluate the scale factor for each vector in vecs.
