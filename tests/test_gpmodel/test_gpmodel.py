@@ -13,31 +13,6 @@ import hiergp.gpmodel
 import hiergp.kernels
 
 
-def test_add_samples():
-    """Test adding samples in different formats.
-    """
-    num_dims = 5
-    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.01, 10))
-    model = hiergp.gpmodel.GPModel('model', sqe_kernel)
-
-    # Add a single value
-    model.add_samples(np.ones(num_dims), 3)
-    assert np.sum(model.values) == 3
-    assert np.sum(model.vectors) == 5
-
-    # Add a single vector
-    model.add_samples(np.ones(num_dims), [7.3])
-    assert np.sum(model.values) == 10.3
-    assert np.sum(model.vectors) == 10
-
-    # Add multiple vectors
-    np.random.seed(0)
-    vectors = np.random.random((20, num_dims))
-    values = np.random.random(20)
-    model.add_samples(vectors, values)
-    assert np.sum(model.values) == np.sum(values)+10.3
-
-
 def test_one_kernel_infer():
     """Test the inference using a single SQE kernel.
     """
@@ -111,7 +86,7 @@ def test_simple_lmgrad():
     gpmodel_grad = hiergp.gpmodel.lmgrad(
         hypers, [sqe_kernel], vectors, values)[1]
     # Relatively weak tolerance, but for large gradient sizes it seems reasonable
-    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-3)
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-2)
 
     # Test gradient with two SQE kernels
     hypers = np.array([2., 1, 2, 3, 4, 5,
@@ -124,7 +99,8 @@ def test_simple_lmgrad():
         hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
     gpmodel_grad = hiergp.gpmodel.lmgrad(
         hypers, [sqe_kernel, sqe_kernel_2], vectors, values)[1]
-    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-3)
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-2)
+
 
 def test_simple_lingrad():
     np.random.seed(0)
@@ -161,4 +137,3 @@ def test_simple_lingrad():
     gpmodel_grad = hiergp.gpmodel.lmgrad(
         hypers, [sqe_kernel, lin_kernel], vectors, values)[1]
     assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
-
