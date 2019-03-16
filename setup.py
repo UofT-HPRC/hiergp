@@ -56,9 +56,9 @@ setup(
     packages=find_packages(where='src'),
     setup_requires=[
         'cython',
-        'numpy'
+        'numpy>=1.8'
     ],
     install_requires=[
-        'numpy'
+        'numpy>=1.8'
     ]
 )
