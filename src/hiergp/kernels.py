@@ -8,6 +8,9 @@ Compositions of kernels should be managed by a Gaussian Process Model that
 contains both kernels.
 
 In this module the Squared Exponential and Linear Kernels are defined.
+
+TODO:
+    - Reduce redundant code between kernels
 """
 import logging
 
@@ -96,6 +99,47 @@ class SqKernel():
 
         self.var = hypers[0]
         self.lengthscales = hypers[1:self.dims+1]
+
+    def grad_K(self, sampled_X, A, novar_K=None, DXX=None):
+        """Compute the trace of A * Jacobian for each parameter.
+
+        This function is specialized to work with maximizing the log
+        marginal likelihood. To that end, it computes:
+
+        :math:`tr(A \\frac{\\del K}{\\del \\theta_j}`
+
+        Args:
+            sampled_X (NxD) : Sampled vectors
+            A (NxN) : A matrix to multiply with
+            novar_K (optional) : If the kernel matrix has been precomputed,
+                without the variance multiplied to it, use this instead
+                of recomputing it
+            DXX (optional) : If the partial derivative term has been
+                precomputed, use it instead of recomputing
+        """
+        gradient = np.empty(self.dims+1)
+
+        # Compute the kernel matrix if it is not given
+        if novar_K is None:
+            novar_K = self.eval(sampled_X, sampled_X, True)
+
+        # Compute the squared distance if not given
+        if DXX is None:
+            DXX = np.empty((sampled_X.shape[1], 
+                            sampled_X.shape[0], sampled_X.shape[0]))
+            for d in range(sampled_X.shape[1]):
+                dx = sampled_X[:, d].reshape(-1,1)
+                DXX[d,:,:] = -((dx.T - dx)**2)
+
+        # The standard deviation scales the kernel matrix
+        gradient[0] = np.einsum('ij,ij->', A, 2.*self.var*novar_K)
+       
+        # Derivatves of lengthscales
+        AsK = A*self.var**2*novar_K
+        for d in range(sampled_X.shape[1]):
+            gradient[d+1] = -(np.einsum('ij,ij->',AsK,DXX[d,:,:]) /
+                              self.lengthscales[d]**3)
+        return gradient
 
     def eval(self, vecs_1, vecs_2, no_var=False):
         """Evaluate the kernel.
@@ -188,6 +232,47 @@ class LinKernel():
 
         self.var = hypers[0]
         self.lengthscales = hypers[1:self.dims+1]
+
+    def grad_K(self, sampled_X, A, novar_K=None, DXX=None):
+        """Compute the trace of A * Jacobian for each parameter.
+
+        This function is specialized to work with maximizing the log
+        marginal likelihood. To that end, it computes:
+
+        :math:`tr(A \\frac{\\del K}{\\del \\theta_j}`
+
+        Args:
+            sampled_X (NxD) : Sampled vectors
+            A (NxN) : A matrix to multiply with
+            novar_K (optional) : If the kernel matrix has been precomputed,
+                without the variance multiplied to it, use this instead
+                of recomputing it
+            DXX (optional) : If the partial derivative term has been
+                precomputed, use it instead of recomputing
+        """
+        gradient = np.empty(self.dims+1)
+
+        # Compute the kernel matrix if it is not given
+        if novar_K is None:
+            novar_K = self.eval(sampled_X, sampled_X, True)
+
+        # Compute the squared distance if not given
+        if DXX is None:
+            DXX = np.empty((sampled_X.shape[1], 
+                            sampled_X.shape[0],
+                            sampled_X.shape[0]))
+            for d in range(sampled_X.shape[1]):
+                dx = sampled_X[:, d].reshape(-1,1)
+                DXX[d,:,:] = np.dot(dx, dx.T)
+
+        # The standard deviation scales the kernel matrix
+        gradient[0] = np.einsum('ij,ij->', A, 2.*self.var*novar_K)
+       
+        # Derivatves of lengthscales
+        AsK = A*self.var**2
+        for d in range(sampled_X.shape[1]):
+            gradient[d+1] = np.einsum('ij,ij->', AsK, DXX[d,:,:])
+        return gradient
 
     def eval(self, vecs_1, vecs_2, no_var=False):
         """Evaluate the kernel.
