@@ -37,6 +37,7 @@ import hiergp.kernels
 LOG = logging.getLogger(__name__)
 EPS = 1e-8
 
+
 def lmgrad(hypers, kernels, sampled_X, sampled_Y):
     """Compute the log marginal likelihood and gradient.
     """
@@ -46,10 +47,11 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y):
     # First handle regressor hypers
     # FIXME: Move this outside the lmgrad function
     gradient = np.empty(len(hypers))
-    DXX = np.empty((sampled_X.shape[1], sampled_X.shape[0], sampled_X.shape[0]))
+    DXX = np.empty(
+        (sampled_X.shape[1], sampled_X.shape[0], sampled_X.shape[0]))
     for d in range(sampled_X.shape[1]):
-        dx = sampled_X[:, d].reshape(-1,1)
-        DXX[d,:,:] = -((dx.T - dx)**2)
+        dx = sampled_X[:, d].reshape(-1, 1)
+        DXX[d, :, :] = -((dx.T - dx)**2)
 
     # Split the kernel hyperparameters into respective kernels
     # Use the get hypers command to get the length of hyperparameters
@@ -58,7 +60,7 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y):
     kernel_dims = np.cumsum([len(kernel.get_hypers()[0]) for kernel in
                              kernels])
     kernel_hypers = np.split(hypers, kernel_dims)
-    
+
     # Compute partial kernels
 
     # Store partial kernel matrices without the variance term
@@ -69,8 +71,8 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y):
         # Update the kernel hyperparameters
         kernel.put_hypers(kernel_hypers[i])
         # TODO: Generalize to kernels without extra variance terms
-        novar_K[i,:,:] = kernel.eval(sampled_X, sampled_X, no_var=True)
-        K += kernel.var**2 * novar_K[i,:,:]
+        novar_K[i, :, :] = kernel.eval(sampled_X, sampled_X, no_var=True)
+        K += kernel.var**2 * novar_K[i, :, :]
 
     # Add diagonal noise
     # FIXME: Add the noise parameter
@@ -79,13 +81,13 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y):
     # TODO: Add exception
     # Compute the log marginal likelihood
     L = np.linalg.cholesky(K)
-    alphaf = np.linalg.solve(L, sampled_Y).reshape(-1,1)
+    alphaf = np.linalg.solve(L, sampled_Y).reshape(-1, 1)
     # This is the negative log likelihood
     log_mlikelihood = np.dot(alphaf.T, alphaf) + 2.*sum(np.log(np.diag(L)))
-    
+
     # Compute gradients
     Ki = np.linalg.inv(K)
-    alpha = np.dot(Ki, sampled_Y).reshape(-1,1)
+    alpha = np.dot(Ki, sampled_Y).reshape(-1, 1)
     AAT = np.dot(alpha, alpha.T) - Ki
 
     offsets = [0] + list(kernel_dims)
@@ -94,11 +96,12 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y):
             precomp_dxx = DXX
         else:
             precomp_dxx = None
-        kernel_grad = -kernel.grad_K(sampled_X, AAT, novar_K=novar_K[i,:,:],
+        kernel_grad = -kernel.grad_K(sampled_X, AAT, novar_K=novar_K[i, :, :],
                                      DXX=precomp_dxx)
         gradient[offsets[i]:offsets[i+1]] = kernel_grad
 
     return log_mlikelihood, gradient
+
 
 class GPModel():
     """Gaussian Process Model.
@@ -125,7 +128,6 @@ class GPModel():
         self.name = name
         self.kernels = kernels
         self.noise = noise
-
 
     def infer(self, targets, sampled_X, sampled_Y):
         """Compute posterior on the NxD targets using sampled data.

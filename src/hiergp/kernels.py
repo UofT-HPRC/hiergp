@@ -83,7 +83,7 @@ class SqKernel():
         """
         return (np.concatenate(([self.var], self.lengthscales)),
                 [self.bounds['var']] +
-                 [self.bounds['lengthscales'] for _ in self.lengthscales])
+                [self.bounds['lengthscales'] for _ in self.lengthscales])
 
     def put_hypers(self, hypers):
         """Update all hyperparameters using a flattened vector.
@@ -95,7 +95,7 @@ class SqKernel():
             hypers : vector of hyperparameters to insert
         """
         if len(hypers) != self.dims+1:
-            raise ValueError('Incorrect number of hyperparameters to insert') 
+            raise ValueError('Incorrect number of hyperparameters to insert')
 
         self.var = hypers[0]
         self.lengthscales = hypers[1:self.dims+1]
@@ -125,19 +125,19 @@ class SqKernel():
 
         # Compute the squared distance if not given
         if DXX is None:
-            DXX = np.empty((sampled_X.shape[1], 
+            DXX = np.empty((sampled_X.shape[1],
                             sampled_X.shape[0], sampled_X.shape[0]))
             for d in range(sampled_X.shape[1]):
-                dx = sampled_X[:, d].reshape(-1,1)
-                DXX[d,:,:] = -((dx.T - dx)**2)
+                dx = sampled_X[:, d].reshape(-1, 1)
+                DXX[d, :, :] = -((dx.T - dx)**2)
 
         # The standard deviation scales the kernel matrix
         gradient[0] = np.einsum('ij,ij->', A, 2.*self.var*novar_K)
-       
+
         # Derivatves of lengthscales
         AsK = A*self.var**2*novar_K
         for d in range(sampled_X.shape[1]):
-            gradient[d+1] = -(np.einsum('ij,ij->',AsK,DXX[d,:,:]) /
+            gradient[d+1] = -(np.einsum('ij,ij->', AsK, DXX[d, :, :]) /
                               self.lengthscales[d]**3)
         return gradient
 
@@ -216,7 +216,7 @@ class LinKernel():
         """
         return (np.concatenate(([self.var], self.lengthscales)),
                 [self.bounds['var']] +
-                 [self.bounds['lengthscales'] for _ in self.lengthscales])
+                [self.bounds['lengthscales'] for _ in self.lengthscales])
 
     def put_hypers(self, hypers):
         """Update all hyperparameters using a flattened vector.
@@ -228,7 +228,7 @@ class LinKernel():
             hypers : vector of hyperparameters to insert
         """
         if len(hypers) != self.dims+1:
-            raise ValueError('Incorrect number of hyperparameters to insert') 
+            raise ValueError('Incorrect number of hyperparameters to insert')
 
         self.var = hypers[0]
         self.lengthscales = hypers[1:self.dims+1]
@@ -258,20 +258,20 @@ class LinKernel():
 
         # Compute the squared distance if not given
         if DXX is None:
-            DXX = np.empty((sampled_X.shape[1], 
+            DXX = np.empty((sampled_X.shape[1],
                             sampled_X.shape[0],
                             sampled_X.shape[0]))
             for d in range(sampled_X.shape[1]):
-                dx = sampled_X[:, d].reshape(-1,1)
-                DXX[d,:,:] = np.dot(dx, dx.T)
+                dx = sampled_X[:, d].reshape(-1, 1)
+                DXX[d, :, :] = np.dot(dx, dx.T)
 
         # The standard deviation scales the kernel matrix
         gradient[0] = np.einsum('ij,ij->', A, 2.*self.var*novar_K)
-       
+
         # Derivatves of lengthscales
         AsK = A*self.var**2
         for d in range(sampled_X.shape[1]):
-            gradient[d+1] = np.einsum('ij,ij->', AsK, DXX[d,:,:])
+            gradient[d+1] = np.einsum('ij,ij->', AsK, DXX[d, :, :])
         return gradient
 
     def eval(self, vecs_1, vecs_2, no_var=False):
