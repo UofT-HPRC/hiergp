@@ -106,9 +106,8 @@ def lmgrad(hypers, kernels, sampled_x, sampled_y, precomp_dx=None):
         if len(kernel_hypers[-1]) != len(sampled_y)-1:
             raise ValueError(
                 "Number of prior scales and Y values does not match")
-        Y = sampled_y[-1]
-        for i, scale in enumerate(kernel_hypers[-1]):
-            Y -= scale*sampled_y[i]
+        Y = sampled_y[-1] - sum(scale*sampled_y[i]
+                                for i, scale in enumerate(kernel_hypers[-1]))
     else:
         Y = sampled_y
 
@@ -133,9 +132,10 @@ def lmgrad(hypers, kernels, sampled_x, sampled_y, precomp_dx=None):
 
     if isinstance(sampled_y, list):
         prior_grad = np.empty(len(sampled_y)-1)
-        for i, scale in enumerate(kernel_hypers[-1]):
-            prior_grad[i] = -2*np.dot(np.dot(Y.T, Ki), sampled_y[i,:])
-        gradient[kernel_dims[-2]:kernel_dims[-1]] = prior_grad
+        partial_grad = np.dot(Y.T, Ki)
+        for i, _ in enumerate(kernel_hypers[-1]):
+            prior_grad[i] = -2*np.dot(partial_grad, sampled_y[i])
+        gradient[kernel_dims[-1]:] = prior_grad
 
     return log_mlikelihood, gradient
 

@@ -4,7 +4,7 @@ TODO:
     Transfer kernels
     Multifidelity kernels
 """
-import functools
+import pytest
 
 import numpy as np
 import scipy as sp
@@ -313,6 +313,7 @@ def test_transfer_grad():
         hypers, [sqe_kernel, txfr_sqe_kernel], [vectors, txfr_vecs], values)[1]
     assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
 
+
 def test_noise_grad():
     np.random.seed(0)
     num_dims = 5
@@ -337,6 +338,7 @@ def test_noise_grad():
 
     # Test gradient of a noise kernel combined with Sq. Exp.
     hypers = np.array([0.1, 1, 2, 3, 4, 5, 0.5])
+
     def log_marg_f(hypers):
         return hiergp.gpmodel.lmgrad(hypers, [sqe_kernel, noise_kernel],
                                      vectors, values)[0]
@@ -345,3 +347,47 @@ def test_noise_grad():
     gpmodel_grad = hiergp.gpmodel.lmgrad(
         hypers, [sqe_kernel, noise_kernel], vectors, values)[1]
     assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+
+def test_scale_priors_grad():
+    """Test gradient of priors."""
+    np.random.seed(0)
+    num_dims = 5
+    num_pts = 20
+
+    vectors = np.random.random((num_pts, num_dims))
+    high_fid_values = np.random.random(num_pts)
+    mid_fid_values = np.random.random(num_pts)
+    low_fid_values = np.random.random(num_pts)
+
+    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.2, 10))
+    hypers = np.array([0.03, 1, 2, 3, 4, 5, 0.1])
+    values = [low_fid_values, high_fid_values]
+
+    def log_marg_f(hypers):
+        return hiergp.gpmodel.lmgrad(hypers, [sqe_kernel],
+                                     vectors, values)[0]
+    scipy_grad = approx_fprime(
+        hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = hiergp.gpmodel.lmgrad(
+        hypers, [sqe_kernel], vectors, values)[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+    # Test with two priors
+    hypers = np.array([0.03, 1, 2, 3, 4, 5, 0.1, 2.1])
+    values = [low_fid_values, mid_fid_values, high_fid_values]
+
+    def log_marg_f(hypers):
+        return hiergp.gpmodel.lmgrad(hypers, [sqe_kernel],
+                                     vectors, values)[0]
+    scipy_grad = approx_fprime(
+        hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = hiergp.gpmodel.lmgrad(
+        hypers, [sqe_kernel], vectors, values)[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+    # Test valueerror assertion
+    hypers = np.array([0.03, 1, 2, 3, 4, 5])
+    with pytest.raises(ValueError):
+        gpmodel_grad = hiergp.gpmodel.lmgrad(
+            hypers, [sqe_kernel], vectors, values)[1]
