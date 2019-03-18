@@ -1,6 +1,7 @@
 """Test Squared Exponential Kernel
 """
 
+import pytest
 import numpy as np
 
 import hiergp.kernels
@@ -103,6 +104,9 @@ def test_hypers():
 
     hypers = np.array([10., 0.8, 0.9, 0.3, 0.25, 0.1])
     model.put_hypers(hypers)
+
+    with pytest.raises(ValueError):
+        model.put_hypers(np.ones(1))
 
     new_hypers, _ = model.get_hypers()
     assert all(hypers == new_hypers)
