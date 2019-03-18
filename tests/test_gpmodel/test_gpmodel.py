@@ -7,6 +7,7 @@ TODO:
 import functools
 
 import numpy as np
+import scipy as sp
 from scipy.optimize import approx_fprime
 
 import hiergp.gpmodel
@@ -66,6 +67,7 @@ def test_two_kernel_infer():
 
 
 def test_simple_lmgrad():
+    """Test the sqe kernel."""
     np.random.seed(0)
     num_dims = 5
     sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.2, 10))
@@ -103,6 +105,9 @@ def test_simple_lmgrad():
 
 
 def test_simple_lingrad():
+    """Test the linear kernel gradient and a combination of linear and
+    sqe kernel
+    """
     np.random.seed(0)
     num_dims = 5
     num_pts = 20
@@ -137,6 +142,90 @@ def test_simple_lingrad():
     gpmodel_grad = hiergp.gpmodel.lmgrad(
         hypers, [sqe_kernel, lin_kernel], vectors, values)[1]
     assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+
+def test_novarK_is_None():
+    """Test the linear kernel gradient and a combination of linear and
+    sqe kernel
+    """
+    np.random.seed(0)
+    num_dims = 5
+    num_pts = 20
+    lin_kernel = hiergp.kernels.LinKernel(num_dims, (0.2, 10))
+    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.2, 10))
+
+    vectors = np.random.random((num_pts, num_dims))
+    values = np.random.random(num_pts)
+
+    def simple_lmgrad(hypers, kernels, sampled_X, sampled_Y):
+        """Simple version of marginal likelihood gradient with no precomputed
+        values.
+        """
+        num_samples = sampled_X.shape[0]
+
+        # gradient vector to return
+        gradient = np.empty(len(hypers))
+
+        # Split the kernel hyperparameters into respective kernels Use the get
+        # hypers command to get the length of hyperparameters For now there isn't
+        # much overhead, but we may want to change this in the future.
+        kernel_dims = np.cumsum([len(kernel.get_hypers()[0]) for kernel in
+                                 kernels])
+        kernel_hypers = np.split(hypers, kernel_dims)
+
+        # Full kernel matrix
+        K = np.zeros((num_samples, num_samples))
+        for i, kernel in enumerate(kernels):
+            kernel.put_hypers(kernel_hypers[i])
+            K += kernel.eval(sampled_X, sampled_X)
+        K += np.eye(num_samples)*np.sqrt(np.finfo(float).eps)
+
+        L = np.linalg.cholesky(K)
+        alphaf = np.linalg.solve(L, sampled_Y).reshape(-1, 1)
+        log_mlikelihood = np.dot(alphaf.T, alphaf) + 2.*sum(np.log(np.diag(L)))
+
+        # Compute gradients
+        c = sp.linalg.solve_triangular(L, np.eye(num_samples), lower=True,
+                                       check_finite=False)
+        Ki = np.dot(c.T, c)
+        alpha = np.dot(Ki, sampled_Y).reshape(-1, 1)
+        AAT = np.dot(alpha, alpha.T) - Ki
+
+        offsets = [0] + list(kernel_dims)
+        for i, kernel in enumerate(kernels):
+            kernel_grad = -kernel.grad_K(sampled_X, AAT)
+            gradient[offsets[i]:offsets[i+1]] = kernel_grad
+        return log_mlikelihood, gradient
+
+    # Test gradient with one SQE kernels
+    hypers = np.array([0.03, 1, 2, 3, 4, 5])*1e-3
+
+    def log_marg_f(hypers):
+        return simple_lmgrad(hypers, [lin_kernel],
+                             vectors, values)[0]
+    scipy_grad = approx_fprime(
+        hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = simple_lmgrad(
+        hypers, [lin_kernel], vectors, values)[1]
+    # The linear kernel values are even larger and have worse tolerance
+    print(scipy_grad)
+    print(gpmodel_grad)
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+    # Test gradient with two SQE kernels
+    hypers = np.array([2., 1, 2, 3, 4, 5,
+                       1., 0.001, 0.002, 0.003, 0.004, 0.005])
+
+    def log_marg_f(hypers):
+        return simple_lmgrad(hypers, [sqe_kernel, lin_kernel],
+                             vectors, values)[0]
+    scipy_grad = approx_fprime(
+        hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = simple_lmgrad(
+        hypers, [sqe_kernel, lin_kernel], vectors, values)[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+
 def test_precomputed():
     """Test use of precomputed partial derivatives for SQE and Lin kernels.
     """
