@@ -33,8 +33,6 @@ import logging
 import numpy as np
 import scipy as sp
 
-import hiergp.kernels
-
 LOG = logging.getLogger(__name__)
 EPS = 1e-8
 
@@ -46,7 +44,7 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y, precomp_dx=None):
     the associated gradient w.r.t. each hyperparameter.
 
     The log marginal likelihood is:
-    
+
     :math:`\\log p(y|X, \\theta) = -\\frac{1}{2} y^T K^{-1} y - \\frac{1}{2}
     \\log |K| - \\frac{n}{2} \\log 2 \\pi`
 
@@ -115,7 +113,7 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y, precomp_dx=None):
 
     # Compute gradients
     c = sp.linalg.solve_triangular(L, np.eye(num_samples), lower=True,
-            check_finite=False)
+                                   check_finite=False)
     Ki = np.dot(c.T, c)
     alpha = np.dot(Ki, sampled_Y).reshape(-1, 1)
     AAT = np.dot(alpha, alpha.T) - Ki
