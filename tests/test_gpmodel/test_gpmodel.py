@@ -157,11 +157,11 @@ def test_novarK_is_None():
     vectors = np.random.random((num_pts, num_dims))
     values = np.random.random(num_pts)
 
-    def simple_lmgrad(hypers, kernels, sampled_X, sampled_Y):
+    def simple_lmgrad(hypers, kernels, sampled_x, sampled_y):
         """Simple version of marginal likelihood gradient with no precomputed
         values.
         """
-        num_samples = sampled_X.shape[0]
+        num_samples = sampled_x.shape[0]
 
         # gradient vector to return
         gradient = np.empty(len(hypers))
@@ -177,23 +177,23 @@ def test_novarK_is_None():
         K = np.zeros((num_samples, num_samples))
         for i, kernel in enumerate(kernels):
             kernel.put_hypers(kernel_hypers[i])
-            K += kernel.eval(sampled_X, sampled_X)
+            K += kernel.eval(sampled_x, sampled_x)
         K += np.eye(num_samples)*np.sqrt(np.finfo(float).eps)
 
         L = np.linalg.cholesky(K)
-        alphaf = np.linalg.solve(L, sampled_Y).reshape(-1, 1)
+        alphaf = np.linalg.solve(L, sampled_y).reshape(-1, 1)
         log_mlikelihood = np.dot(alphaf.T, alphaf) + 2.*sum(np.log(np.diag(L)))
 
         # Compute gradients
         c = sp.linalg.solve_triangular(L, np.eye(num_samples), lower=True,
                                        check_finite=False)
         Ki = np.dot(c.T, c)
-        alpha = np.dot(Ki, sampled_Y).reshape(-1, 1)
+        alpha = np.dot(Ki, sampled_y).reshape(-1, 1)
         AAT = np.dot(alpha, alpha.T) - Ki
 
         offsets = [0] + list(kernel_dims)
         for i, kernel in enumerate(kernels):
-            kernel_grad = -kernel.grad_K(sampled_X, AAT)
+            kernel_grad = -kernel.grad_k(sampled_x, AAT)
             gradient[offsets[i]:offsets[i+1]] = kernel_grad
         return log_mlikelihood, gradient
 
@@ -311,4 +311,37 @@ def test_transfer_grad():
         hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
     gpmodel_grad = hiergp.gpmodel.lmgrad(
         hypers, [sqe_kernel, txfr_sqe_kernel], [vectors, txfr_vecs], values)[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+def test_noise_grad():
+    np.random.seed(0)
+    num_dims = 5
+    num_pts = 20
+    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.2, 10))
+    noise_kernel = hiergp.kernels.NoiseKernel((0.2, 10))
+
+    vectors = np.random.random((num_pts, num_dims))
+    values = np.random.random(num_pts)
+
+    # Test gradient of just a noise kernel
+    hypers = np.array([0.03])
+
+    def log_marg_f(hypers):
+        return hiergp.gpmodel.lmgrad(hypers, [noise_kernel],
+                                     vectors, values)[0]
+    scipy_grad = approx_fprime(
+        hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = hiergp.gpmodel.lmgrad(
+        hypers, [noise_kernel], vectors, values)[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+
+    # Test gradient of a noise kernel combined with Sq. Exp.
+    hypers = np.array([0.1, 1, 2, 3, 4, 5, 0.5])
+    def log_marg_f(hypers):
+        return hiergp.gpmodel.lmgrad(hypers, [sqe_kernel, noise_kernel],
+                                     vectors, values)[0]
+    scipy_grad = approx_fprime(
+        hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = hiergp.gpmodel.lmgrad(
+        hypers, [sqe_kernel, noise_kernel], vectors, values)[1]
     assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)

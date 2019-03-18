@@ -302,3 +302,93 @@ class LinKernel():
         """
         vec_lambda = np.dot(vecs, np.diag(self.lengthscales))
         return self.var**2*np.sum(vec_lambda*vecs, axis=1)
+
+
+class NoiseKernel():
+    """Noise kernel.
+
+    This function is equivalent to adding i.i.d Gaussian noise with zero mean
+    to the values.
+
+    The kernel function is an identity:
+    :math:`k(x,x') = \\sigma_n^2 1_{x=x'}`
+    in other words the function is :math:`\\sigma_n^2` only when :math:`x=x'`.
+
+    In matrix form the resulting kernel matrix is:
+
+    :math:`\\sigma_n^2 I`
+
+    Args:
+        var_bounds (pair) : (Lower, Upper) bounds on the noise term
+    """
+
+    def __init__(self, var_bounds):
+        self.bounds = [var_bounds]
+        self.var = min(self.bounds)
+
+    def get_hypers(self):
+        """Get flattened hyperparameters and associated bounds.
+
+        Returns:
+            Tuple : (list containing noise parameter,
+                     list of associated bound)
+        """
+        # Wrap the variance in a list since it is expected in lmgrad
+        return ([self.var], self.bounds)
+
+    def put_hypers(self, hypers):
+        """Update variance given a numpy array.
+
+        Args:
+            hypers : (1, ) numpy array
+        """
+        self.var = hypers[0]
+
+    def grad_k(self, sampled_x, A, novar_K=None, DXX=None):
+        """Compute the trace of A * Jacobian for each parameter.
+
+        This function is specialized to work with maximizing the log
+        marginal likelihood. To that end, it computes:
+
+        :math:`tr(A \\frac{\\partial K}{\\partial \\theta_j}`
+
+        Args:
+            sampled_x (NxD) : Sampled vectors
+            A (NxN) : A matrix to multiply with
+            novar_K (optional) : If the kernel matrix has been precomputed,
+                without the variance multiplied to it, use this instead
+                of recomputing it
+            DXX (unused)
+        """
+        gradient = np.array([2.*self.var*np.trace(A)])
+        return gradient
+
+    def eval(self, vecs_1, vecs_2, no_var=False):
+        """Evaluate the kernel.
+
+        Args:
+            vecs_1 (NxD array) : First matrix to compute with :math:`X`
+            vecs_2 (NxD array) : Second matrix to compute with :math:`Y`
+            no_var (bool) : If True, return kernel without scaling factor
+                            :math:`\\sigma_f^2`
+        """
+        if no_var:
+            return np.eye(vecs_1.shape[0])
+        else:
+            return self.var**2*np.eye(vecs_1.shape[0])
+
+    def scale(self, vecs):
+        """Evaluate the scale factor for each vector in vecs.
+
+        The scale factor is computed as :math:`k(x,x)`. Note that this
+        function returns the scale factor for each vector in vec independently.
+        Thus for an NxD input, a vector of size N is produced.
+
+        The scale factor the squared exponential is just the variance factor
+        :math:`\\sigma_f^2` since the squared exponential is 1. for
+        identical vectors.
+
+        Args:
+            vecs (NxD array) : Vector to compute scale
+        """
+        return np.full(vecs.shape[0], self.var**2)
