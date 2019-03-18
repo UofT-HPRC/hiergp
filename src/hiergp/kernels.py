@@ -324,7 +324,7 @@ class NoiseKernel():
 
     def __init__(self, var_bounds):
         self.bounds = [var_bounds]
-        self.var = min(self.bounds)
+        self.var = min(self.bounds[0])
 
     def get_hypers(self):
         """Get flattened hyperparameters and associated bounds.
