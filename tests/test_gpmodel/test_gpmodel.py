@@ -137,3 +137,89 @@ def test_simple_lingrad():
     gpmodel_grad = hiergp.gpmodel.lmgrad(
         hypers, [sqe_kernel, lin_kernel], vectors, values)[1]
     assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+def test_precomputed():
+    """Test use of precomputed partial derivatives for SQE and Lin kernels.
+    """
+    np.random.seed(0)
+    num_dims = 5
+    num_pts = 100
+    lin_kernel = hiergp.kernels.LinKernel(num_dims, (0.2, 10))
+    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.2, 10))
+
+    vectors = np.random.random((num_pts, num_dims))
+    values = np.random.random(num_pts)
+
+    sqe_hypers = np.array([100., 0.1, 0.2, 0.3, 0.4, 0.5])
+    lin_hypers = np.array([0.03, 1, 2, 3, 4, 5])*1e-3
+
+    precompute_sqe = np.empty((vectors.shape[1],
+                               vectors.shape[0], vectors.shape[0]))
+    for dim in range(vectors.shape[1]):
+        # Value of X at dimension 'dim' for all samples
+        x = vectors[:, dim].reshape(-1, 1)
+        precompute_sqe[dim, :, :] = -(x.T - x)**2
+
+    def log_marg_f(hypers):
+        return hiergp.gpmodel.lmgrad(hypers, [sqe_kernel],
+                                     vectors, values)[0]
+
+    scipy_grad = approx_fprime(
+        sqe_hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = hiergp.gpmodel.lmgrad(
+        sqe_hypers, [sqe_kernel], vectors, values)[1]
+    gpmodel_grad_pre = hiergp.gpmodel.lmgrad(
+        sqe_hypers, [sqe_kernel], vectors, values,
+        precomp_dx=[precompute_sqe])[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+    assert np.allclose(gpmodel_grad, gpmodel_grad_pre)
+
+    precompute_lin = np.empty((vectors.shape[1],
+                               vectors.shape[0], vectors.shape[0]))
+    for dim in range(vectors.shape[1]):
+        # Value of X at dimension 'dim' for all samples
+        x = vectors[:, dim].reshape(-1, 1)
+        precompute_lin[dim, :, :] = np.dot(x, x.T)
+
+    def log_marg_f(hypers):
+        return hiergp.gpmodel.lmgrad(hypers, [lin_kernel],
+                                     vectors, values)[0]
+
+    scipy_grad = approx_fprime(
+        lin_hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = hiergp.gpmodel.lmgrad(
+        lin_hypers, [lin_kernel], vectors, values)[1]
+    gpmodel_grad_pre = hiergp.gpmodel.lmgrad(
+        lin_hypers, [lin_kernel], vectors, values,
+        precomp_dx=[precompute_lin])[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
+    assert np.allclose(gpmodel_grad, gpmodel_grad_pre)
+
+
+def test_transfer_grad():
+    """Test using a transfer matrix to transform vectors"""
+    np.random.seed(0)
+    num_dims = 5
+    num_pts = 100
+
+    # Use 3 transfer dims
+    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.2, 10))
+    txfr_sqe_kernel = hiergp.kernels.SqKernel(3, (0.2, 10))
+
+    vectors = np.random.random((num_pts, num_dims))
+    values = np.random.random(num_pts)
+    transfer_matrix = np.array([[1, 1, 0, 0, 0],
+                                [0, 0, 1, 1, 0],
+                                [0, 0, 0, 0, 1]])
+
+    txfr_vecs = np.dot(vectors, transfer_matrix.T)
+    hypers = np.array([5., 0.2, 0.21, 0.31, 0.4, 0.5] +
+                      [3., 0.1, 0.2, 0.3])
+
+    def log_marg_f(hypers):
+        return hiergp.gpmodel.lmgrad(hypers, [sqe_kernel, txfr_sqe_kernel],
+                                     [vectors, txfr_vecs], values)[0]
+    scipy_grad = approx_fprime(
+        hypers, log_marg_f, np.sqrt(np.finfo(float).eps))
+    gpmodel_grad = hiergp.gpmodel.lmgrad(
+        hypers, [sqe_kernel, txfr_sqe_kernel], [vectors, txfr_vecs], values)[1]
+    assert np.allclose(scipy_grad, gpmodel_grad, rtol=1e-1)
