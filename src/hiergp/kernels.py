@@ -100,16 +100,16 @@ class SqKernel():
         self.var = hypers[0]
         self.lengthscales = hypers[1:self.dims+1]
 
-    def grad_K(self, sampled_X, A, novar_K=None, DXX=None):
+    def grad_k(self, sampled_x, A, novar_K=None, DXX=None):
         """Compute the trace of A * Jacobian for each parameter.
 
         This function is specialized to work with maximizing the log
         marginal likelihood. To that end, it computes:
 
-        :math:`tr(A \\frac{\\del K}{\\del \\theta_j}`
+        :math:`tr(A \\frac{\\partial K}{\\partial \\theta_j}`
 
         Args:
-            sampled_X (NxD) : Sampled vectors
+            sampled_x (NxD) : Sampled vectors
             A (NxN) : A matrix to multiply with
             novar_K (optional) : If the kernel matrix has been precomputed,
                 without the variance multiplied to it, use this instead
@@ -121,14 +121,14 @@ class SqKernel():
 
         # Compute the kernel matrix if it is not given
         if novar_K is None:
-            novar_K = self.eval(sampled_X, sampled_X, True)
+            novar_K = self.eval(sampled_x, sampled_x, True)
 
         # Compute the squared distance if not given
         if DXX is None:
-            DXX = np.empty((sampled_X.shape[1],
-                            sampled_X.shape[0], sampled_X.shape[0]))
-            for d in range(sampled_X.shape[1]):
-                dx = sampled_X[:, d].reshape(-1, 1)
+            DXX = np.empty((sampled_x.shape[1],
+                            sampled_x.shape[0], sampled_x.shape[0]))
+            for d in range(sampled_x.shape[1]):
+                dx = sampled_x[:, d].reshape(-1, 1)
                 DXX[d, :, :] = -((dx.T - dx)**2)
 
         # The standard deviation scales the kernel matrix
@@ -136,7 +136,7 @@ class SqKernel():
 
         # Derivatves of lengthscales
         AsK = A*self.var**2*novar_K
-        for d in range(sampled_X.shape[1]):
+        for d in range(sampled_x.shape[1]):
             gradient[d+1] = -(np.einsum('ij,ij->', AsK, DXX[d, :, :]) /
                               self.lengthscales[d]**3)
         return gradient
@@ -233,16 +233,16 @@ class LinKernel():
         self.var = hypers[0]
         self.lengthscales = hypers[1:self.dims+1]
 
-    def grad_K(self, sampled_X, A, novar_K=None, DXX=None):
+    def grad_k(self, sampled_x, A, novar_K=None, DXX=None):
         """Compute the trace of A * Jacobian for each parameter.
 
         This function is specialized to work with maximizing the log
         marginal likelihood. To that end, it computes:
 
-        :math:`tr(A \\frac{\\del K}{\\del \\theta_j}`
+        :math:`tr(A \\frac{\\partial K}{\\partial \\theta_j}`
 
         Args:
-            sampled_X (NxD) : Sampled vectors
+            sampled_x (NxD) : Sampled vectors
             A (NxN) : A matrix to multiply with
             novar_K (optional) : If the kernel matrix has been precomputed,
                 without the variance multiplied to it, use this instead
@@ -254,15 +254,15 @@ class LinKernel():
 
         # Compute the kernel matrix if it is not given
         if novar_K is None:
-            novar_K = self.eval(sampled_X, sampled_X, True)
+            novar_K = self.eval(sampled_x, sampled_x, True)
 
         # Compute the squared distance if not given
         if DXX is None:
-            DXX = np.empty((sampled_X.shape[1],
-                            sampled_X.shape[0],
-                            sampled_X.shape[0]))
-            for d in range(sampled_X.shape[1]):
-                dx = sampled_X[:, d].reshape(-1, 1)
+            DXX = np.empty((sampled_x.shape[1],
+                            sampled_x.shape[0],
+                            sampled_x.shape[0]))
+            for d in range(sampled_x.shape[1]):
+                dx = sampled_x[:, d].reshape(-1, 1)
                 DXX[d, :, :] = np.dot(dx, dx.T)
 
         # The standard deviation scales the kernel matrix
@@ -270,7 +270,7 @@ class LinKernel():
 
         # Derivatves of lengthscales
         AsK = A*self.var**2
-        for d in range(sampled_X.shape[1]):
+        for d in range(sampled_x.shape[1]):
             gradient[d+1] = np.einsum('ij,ij->', AsK, DXX[d, :, :])
         return gradient
 

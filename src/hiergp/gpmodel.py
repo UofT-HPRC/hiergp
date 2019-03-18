@@ -37,7 +37,7 @@ LOG = logging.getLogger(__name__)
 EPS = 1e-8
 
 
-def lmgrad(hypers, kernels, sampled_X, sampled_Y, precomp_dx=None):
+def lmgrad(hypers, kernels, sampled_x, sampled_y, precomp_dx=None):
     """Compute the negative log marginal likelihood and gradient.
 
     For a list of kernels, compute part of the log marginal likelihood and
@@ -61,9 +61,9 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y, precomp_dx=None):
         hypers : Flattened list of hyperparameters for all kernels and
                  the model.
         kernels : List of kernels that make up the model.
-        sampled_X : List of sampled vectors for each kernel. If a single
+        sampled_x : List of sampled vectors for each kernel. If a single
                     array is given, it is used for all kernels.
-        sampled_Y : Array of values corresponding to each sampled vector.
+        sampled_y : Array of values corresponding to each sampled vector.
         precomp_dx : Optional precomputed derivatives to be passed to each
                      kernel gradient computation.
     """
@@ -72,12 +72,12 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y, precomp_dx=None):
     if precomp_dx is None:
         precomp_dx = [None]*len(kernels)
 
-    if not isinstance(sampled_X, list):
+    if not isinstance(sampled_x, list):
         # This should make multiple references to the same matrix
-        data_X = [sampled_X]*len(kernels)
+        data_x = [sampled_x]*len(kernels)
     else:
-        data_X = sampled_X
-    num_samples = data_X[0].shape[0]
+        data_x = sampled_x
+    num_samples = data_x[0].shape[0]
 
     # gradient vector to return
     gradient = np.empty(len(hypers))
@@ -96,18 +96,25 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y, precomp_dx=None):
     for i, kernel in enumerate(kernels):
         # Update the kernel hyperparameters
         kernel.put_hypers(kernel_hypers[i])
-        # TODO: Generalize to kernels without extra variance terms
-        novar_K[i, :, :] = kernel.eval(data_X[i], data_X[i], no_var=True)
+        novar_K[i, :, :] = kernel.eval(data_x[i], data_x[i], no_var=True)
         K += kernel.var**2 * novar_K[i, :, :]
-
     # Add diagonal noise
-    # FIXME: Add the noise parameter
     K += np.eye(num_samples)*EPS
 
-    # TODO: Add exception
+    # Handle scaling of prior values
+    if isinstance(sampled_y, list):
+        if len(kernel_hypers[-1]) != len(sampled_y)-1:
+            raise ValueError(
+                "Number of prior scales and Y values does not match")
+        Y = sampled_y[-1]
+        for i, scale in enumerate(kernel_hypers[-1]):
+            Y -= scale*sampled_y[i]
+    else:
+        Y = sampled_y
+
     # Compute the log marginal likelihood
     L = np.linalg.cholesky(K)
-    alphaf = np.linalg.solve(L, sampled_Y).reshape(-1, 1)
+    alphaf = np.linalg.solve(L, Y).reshape(-1, 1)
     # This is the negative log likelihood
     log_mlikelihood = np.dot(alphaf.T, alphaf) + 2.*sum(np.log(np.diag(L)))
 
@@ -115,14 +122,20 @@ def lmgrad(hypers, kernels, sampled_X, sampled_Y, precomp_dx=None):
     c = sp.linalg.solve_triangular(L, np.eye(num_samples), lower=True,
                                    check_finite=False)
     Ki = np.dot(c.T, c)
-    alpha = np.dot(Ki, sampled_Y).reshape(-1, 1)
+    alpha = np.dot(Ki, Y).reshape(-1, 1)
     AAT = np.dot(alpha, alpha.T) - Ki
 
     offsets = [0] + list(kernel_dims)
     for i, kernel in enumerate(kernels):
-        kernel_grad = -kernel.grad_K(data_X[i], AAT, novar_K=novar_K[i, :, :],
+        kernel_grad = -kernel.grad_k(data_x[i], AAT, novar_K=novar_K[i, :, :],
                                      DXX=precomp_dx[i])
         gradient[offsets[i]:offsets[i+1]] = kernel_grad
+
+    if isinstance(sampled_y, list):
+        prior_grad = np.empty(len(sampled_y)-1)
+        for i, scale in enumerate(kernel_hypers[-1]):
+            prior_grad[i] = -2*np.dot(np.dot(Y.T, Ki), sampled_y[i,:])
+        gradient[kernel_dims[-2]:kernel_dims[-1]] = prior_grad
 
     return log_mlikelihood, gradient
 
@@ -153,7 +166,7 @@ class GPModel():
         self.kernels = kernels
         self.noise = noise
 
-    def infer(self, targets, sampled_X, sampled_Y):
+    def infer(self, targets, sampled_x, sampled_y):
         """Compute posterior on the NxD targets using sampled data.
 
         This function computes:
@@ -165,23 +178,23 @@ class GPModel():
 
         Args:
             targets : NxD :math:`Z`
-            sampled_X : MxD :math:`X`
-            sampled_Y : Mx1 :math:`Y`
+            sampled_x : MxD :math:`X`
+            sampled_y : Mx1 :math:`Y`
         """
         # Ignore 'bad' names since these correspond to equation symbols
         # pylint: disable=invalid-name
 
-        assert sampled_X.shape[1] == targets.shape[1]
+        assert sampled_x.shape[1] == targets.shape[1]
 
-        K = sum(k.eval(sampled_X, sampled_X) for k in self.kernels)
+        K = sum(k.eval(sampled_x, sampled_x) for k in self.kernels)
         # Add noise term
         K += np.eye(K.shape[0])*self.noise
         K += np.eye(K.shape[0])*EPS
         L = np.linalg.cholesky(K)
 
-        Y = sampled_Y
+        Y = sampled_y
         LLY = np.linalg.solve(L, Y)
-        Ks = sum(k.eval(targets, sampled_X) for k in self.kernels)
+        Ks = sum(k.eval(targets, sampled_x) for k in self.kernels)
         Lk = np.linalg.solve(L, Ks.T)
         mu = np.dot(Lk.T, LLY)
         scales = sum(k.scale(targets) for k in self.kernels)
