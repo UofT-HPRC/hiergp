@@ -201,3 +201,67 @@ class GPModel():
         s2 = scales - np.sum(Lk**2, axis=0)
 
         return mu, s2
+
+    def fit(self, sampled_x, sampled_y):
+        """Fit the kernel and model parameters.
+        """
+
+        if self.y_scales.shape[0] != 0:
+            assert isinstance(sampled_y, list)
+
+        # Pre-compute partial derivatives for SQE and Lin Kernels
+        sqe_precomp = None
+        lin_precomp = None
+        precomp_dx = []
+        hypers = []
+        hyper_bounds = []
+        for kernel in self.kernels:
+            hyp, hyp_bounds = kernel.get_hypers()
+            hypers.append(hyp)
+            hyper_bounds += hyp_bounds
+            if isinstance(kernel, hiergp.kernels.SqKernel):
+                if sqe_precomp is None:
+                    sqe_precomp = np.empty((sampled_x.shape[1],
+                                            sampled_x.shape[0],
+                                            sampled_x.shape[0]))
+                    for dim in range(sampled_x.shape[1]):
+                        dx = sampled_x[:, dim].reshape(-1, 1)
+                        sqe_precomp[dim, :, :] = - ((dx.T - dx)**2)
+                precomp_dx.append(sqe_precomp)
+            elif isinstance(kernel, hiergp.kernels.LinKernel):
+                if lin_precomp is None:
+                    lin_precomp = np.empty((sampled_x.shape[1],
+                                            sampled_x.shape[0],
+                                            sampled_x.shape[0]))
+                    for dim in range(sampled_x.shape[1]):
+                        dx = sampled_x[:, dim].reshape(-1, 1)
+                        lin_precomp[dim, :, :] = np.dot(dx, dx.T)
+                precomp_dx.append(lin_precomp)
+            else:
+                precomp_dx.append(None)
+        hypers = np.concatenate(hypers + [self.y_scales])
+        hyper_bounds += self.bounds['y_scales']
+
+        # Run optimization
+        best_result = None
+        for trial in range(3):
+            # pylint: disable=unsubscriptable-object
+            if trial != 0:
+                hypers = best_result['x'] + np.random.randn(hypers.shape[0])
+            optres = minimize(lmgrad, hypers,
+                              args=(self.kernels, sampled_x, sampled_y,
+                                    precomp_dx),
+                              jac=True, tol=1e-10,
+                              bounds=hyper_bounds)
+            if best_result is None or optres['fun'] < best_result['fun']:
+                best_result = optres
+        hypers = best_result['x']
+
+        # Store best hyperparameters back into kernels
+        kernel_dims = np.cumsum([len(kernel.get_hypers()[0]) for kernel in
+                                 self.kernels])
+        kernel_hypers = np.split(hypers, kernel_dims)
+        for i, kernel in enumerate(self.kernels):
+            kernel.put_hypers(kernel_hypers[i])
+
+        self.y_scales = hypers[kernel_dims[-1]:]
