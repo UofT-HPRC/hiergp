@@ -58,6 +58,8 @@ def test_two_kernel_infer():
     assert np.allclose(expected_s2, s2)
     assert np.allclose(expected_mean, mu)
 
+    model.fit(vectors, values)
+test_two_kernel_infer()
 
 def test_fit():
     """Test fit function of gpmodel
@@ -97,9 +99,26 @@ def test_multifid_fit():
     low_values = vectors[:, 0]*2 + vectors[:, 1]
     mid_values = np.random.random(20)
     high_values = vectors[:, 0]*2 + vectors[:, 1]
-    model = hiergp.gpmodel.GPModel('model', [lin_kernel], [0.1, 0.3])
+    model = hiergp.gpmodel.GPModel('model', [lin_kernel], 2)
     model.bounds['y_scales'] = [(0.01, 2), (0.01, 2)]
     model.fit(vectors, [low_values, mid_values, high_values])
 
     assert np.allclose(model.y_scales, [1., 0.01], rtol=0.1)
     assert model.y_scales[0] > model.y_scales[1]
+
+def test_mu_fit():
+    """One way to fit a generic mean function is to use a unit value for 
+    other y values.
+    """
+    num_dims = 1
+    vectors = np.random.random((20, num_dims))
+    values = np.random.randn(20)*0.01 + 8.
+    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.01, 10))
+    sqe_kernel.bounds['var'] = (0.01, 0.01)
+    model = hiergp.gpmodel.GPModel('model', sqe_kernel, num_priors=1)
+    model.bounds['y_scales'] = [(0.1, 10)]
+    model.fit(vectors, [np.ones(20), values])
+
+    assert np.isclose(model.y_scales, 8., rtol=0.1)
+
+test_mu_fit()

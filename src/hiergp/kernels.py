@@ -57,9 +57,9 @@ class SqKernel():
     \\frac{(x_d-x_d')^2}{\\lambda_d^2}).`
 
     Args:
-        dims(int) : Number of dimensions in the data (:math:`D`)
+        dims(int) : Number of lengthscale parameters :math:`D`.
         lbound(pair) : Lower, upper bounds for lengthscales in the primary
-                       kernel
+                       kernel.
     """
 
     def __init__(self,
@@ -251,7 +251,6 @@ class LinKernel():
                 precomputed, use it instead of recomputing
         """
         gradient = np.empty(self.dims+1)
-
         # Compute the kernel matrix if it is not given
         if novar_K is None:
             novar_K = self.eval(sampled_x, sampled_x, True)
