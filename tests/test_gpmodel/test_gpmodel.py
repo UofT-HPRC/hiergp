@@ -121,4 +121,23 @@ def test_mu_fit():
 
     assert np.isclose(model.y_scales, 8., rtol=0.1)
 
-test_mu_fit()
+def test_transfer_fit():
+    """Test using a transfer matrix to transform vectors"""
+    np.random.seed(0)
+    num_dims = 5
+    num_pts = 100
+
+    # Use 3 transfer dims
+    sqe_kernel = hiergp.kernels.SqKernel(num_dims, (0.2, 10))
+    txfr_sqe_kernel = hiergp.kernels.SqKernel(3, (0.2, 10))
+
+    vectors = np.random.random((num_pts, num_dims))
+    values = np.random.random(num_pts)
+    transfer_matrix = np.array([[1, 1, 0, 0, 0],
+                                [0, 0, 1, 1, 0],
+                                [0, 0, 0, 0, 1]])
+    model = hiergp.gpmodel.GPModel('model', [sqe_kernel, txfr_sqe_kernel],
+                                   txfr_mtxs=[None, transfer_matrix])
+    assert np.allclose(model.infer(vectors, vectors, values)[0],values)
+    model.fit(vectors, values)
+    assert np.allclose(model.infer(vectors, vectors, values)[0],values, rtol=0.1)

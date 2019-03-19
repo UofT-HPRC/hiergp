@@ -182,6 +182,8 @@ class GPModel():
         self.kernels = kernels
         if not isinstance(txfr_mtxs, list):
             self.txfr_mtxs = [txfr_mtxs]*len(kernels)
+        else:
+            self.txfr_mtxs = txfr_mtxs
         self.y_scales = np.full(num_priors, np.min(y_bounds))
         self.bounds = dict(y_scales=[y_bounds for _ in range(num_priors)])
 
