@@ -330,11 +330,15 @@ class NoiseKernel():
 
     Args:
         var_bounds (pair) : (Lower, Upper) bounds on the noise term
+        noisy_output (bool) : If True, output the noise term when outputting
+        scale.
     """
 
-    def __init__(self, var_bounds):
+    def __init__(self, var_bounds, noisy_output=False):
         self.bounds = dict(var=var_bounds)
         self.var = self.bounds['var'][0]
+        self.noisy_output = noisy_output
+
 
     def get_hypers(self):
         """Get flattened hyperparameters and associated bounds.
@@ -403,4 +407,7 @@ class NoiseKernel():
         Args:
             vecs (NxD array) : Vector to compute scale
         """
-        return np.zeros(vecs.shape[0])  # np.full(vecs.shape[0], self.var**2)
+        if self.noisy_output:
+            return np.full(vecs.shape[0], self.var**2)
+        else:
+            return np.zeros(vecs.shape[0])
