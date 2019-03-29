@@ -317,13 +317,24 @@ class NoiseKernel():
 
     :math:`\\sigma_n^2 I`
 
+    This kernel is only evaluated when computiong pairwise covariance between
+    points. The kernel value is zero when computing the value between different
+    vectors. This allows the kernel function to be used when computing the
+    mean:
+
+    :math:`K(X,Z) (K(X,X) + \\sigma_n^2 I)^{-1} (Y)`
+
+    Also set the scale() output to zero to support 
+
+    :math:`K(X,X) - K(X,Z)(K(X,X) + \\sigma_n^2I)^{-1}K(Z,X)`
+
     Args:
         var_bounds (pair) : (Lower, Upper) bounds on the noise term
     """
 
     def __init__(self, var_bounds):
-        self.bounds = [var_bounds]
-        self.var = min(self.bounds[0])
+        self.bounds = dict(var=var_bounds)
+        self.var = self.bounds['var'][0]
 
     def get_hypers(self):
         """Get flattened hyperparameters and associated bounds.
@@ -333,7 +344,7 @@ class NoiseKernel():
                      list of associated bound)
         """
         # Wrap the variance in a list since it is expected in lmgrad
-        return ([self.var], self.bounds)
+        return ([self.var], [self.bounds['var']])
 
     def put_hypers(self, hypers):
         """Update variance given a numpy array.
@@ -371,6 +382,8 @@ class NoiseKernel():
             no_var (bool) : If True, return kernel without scaling factor
                             :math:`\\sigma_f^2`
         """
+        if vecs_1 is not vecs_2:
+            return 0.
         if no_var:
             return np.eye(vecs_1.shape[0])
         else:
@@ -390,4 +403,4 @@ class NoiseKernel():
         Args:
             vecs (NxD array) : Vector to compute scale
         """
-        return np.full(vecs.shape[0], self.var**2)
+        return np.zeros(vecs.shape[0]) # np.full(vecs.shape[0], self.var**2)
