@@ -238,7 +238,9 @@ class GPModel():
         mu = np.dot(Lk.T, LLY)
         scales = sum(k.scale(targets) for k in self.kernels)
         s2 = scales - np.sum(Lk**2, axis=0)
-
+        if any(s2 < 0):
+            LOG.warning("Detected negative values for variance")
+        s2[s2 < 0] = 0.
         return mu, s2
 
     def fit(self, sampled_x, sampled_y):
