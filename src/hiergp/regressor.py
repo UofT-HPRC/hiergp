@@ -12,6 +12,7 @@ import hiergp.gpmodel
 
 LOG = logging.getLogger(__name__)
 
+
 class InferResult():
     def __init__(self, mu, s2, extras={}):
         self.mu = mu
