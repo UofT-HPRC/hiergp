@@ -23,12 +23,15 @@ def test_prior():
     test_y = test_x*3+5
     values = train_x*3+5
 
-    assert reg(train_x) == (0,0)
-
+    res = reg(train_x)
+    assert res.mu == 0.
+    assert res.s2 == 0.
+    
     reg.add_samples(train_x, values)
 
-    assert np.allclose(reg(train_x)[0], values)
-    assert np.allclose(reg(test_x)[0], test_y, rtol=0.1)
+    assert np.allclose(reg(train_x).mu, values)
+    assert np.allclose(reg(test_x).mu, test_y, rtol=0.1)
+test_prior()
 
 def test_noprior():
     """Test the inference using a single SQE kernel.
@@ -45,4 +48,4 @@ def test_noprior():
     values = train_x*3+5
     reg.add_samples(train_x[:3], values[:3])
     reg.add_samples(train_x[3:,:], values[3:])
-    assert np.allclose(reg(train_x)[0], values, rtol=0.1)
+    assert np.allclose(reg(train_x).mu, values, rtol=0.1)

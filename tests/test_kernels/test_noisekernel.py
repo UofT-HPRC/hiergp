@@ -14,7 +14,7 @@ def test_variance():
     # Create the model
     model = hiergp.kernels.NoiseKernel((0.05, 1.))
     vectors = np.ones(num_points)
-    assert np.allclose(model.scale(vectors), np.ones(num_points)*model.var**2)
+    assert np.allclose(model.scale(vectors), np.zeros(num_points))
 
 def test_identity():
     """Test the eval function on the same vectors.
