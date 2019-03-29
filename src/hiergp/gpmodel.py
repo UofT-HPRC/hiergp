@@ -122,7 +122,15 @@ def lmgrad(hypers, kernels, sampled_x, sampled_y, precomp_dx=None):
         Y = sampled_y
 
     # Compute the log marginal likelihood
-    L = np.linalg.cholesky(K)
+    try:
+        L = np.linalg.cholesky(K)
+    except np.linalg.linalg.LinAlgError:
+        LOG.error("Problem computing cholesky")
+        for kernel in kernels:
+            LOG.error("Kernel %s variance %f", kernel.__class__.__name__,
+                      kernel.var)
+        raise
+
     alphaf = np.linalg.solve(L, Y).reshape(-1, 1)
     log_mlikelihood = np.dot(alphaf.T, alphaf) + 2.*sum(np.log(np.diag(L)))
 
