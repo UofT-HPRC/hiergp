@@ -324,7 +324,7 @@ class NoiseKernel():
 
     :math:`K(X,Z) (K(X,X) + \\sigma_n^2 I)^{-1} (Y)`
 
-    Also set the scale() output to zero to support 
+    Also set the scale() output to zero to support
 
     :math:`K(X,X) - K(X,Z)(K(X,X) + \\sigma_n^2I)^{-1}K(Z,X)`
 
@@ -403,4 +403,4 @@ class NoiseKernel():
         Args:
             vecs (NxD array) : Vector to compute scale
         """
-        return np.zeros(vecs.shape[0]) # np.full(vecs.shape[0], self.var**2)
+        return np.zeros(vecs.shape[0])  # np.full(vecs.shape[0], self.var**2)
