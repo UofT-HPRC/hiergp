@@ -4,11 +4,13 @@ A regressor keeps track of the training and handles model updates.
 This allows the regressor to update sampled values to be fed into a GPModel
 based on updates to mean function parameters.
 """
+import logging
 
 import numpy as np
 
 import hiergp.gpmodel
 
+LOG = logging.getLogger(__name__)
 
 class InferResult():
     def __init__(self, mu, s2, extras={}):
@@ -79,8 +81,8 @@ class GPRegressor():
                 kernel.bounds['var'] = (0.1*var_est, None)
         self.gpmodel.fit(self.sampled_x, self.sampled_y-prior_y)
         for kernel in self.gpmodel.kernels:
-            print(self.name, kernel.__class__.__name__,
-                  kernel.var, var_est, np.mean(self.sampled_y))
+            LOG.info(f"{self.name} {kernel.__class__.__name__} "
+                     f"{kernel.var} {var_est} {np.mean(self.sampled_y)}")
 
     def infer(self, vectors):
         """Compute posterior using prior and Gaussian process.
