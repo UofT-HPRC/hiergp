@@ -9,6 +9,12 @@ import numpy as np
 
 import hiergp.gpmodel
 
+class InferResult():
+    def __init__(self, mu, s2, extras={}):
+        self.mu = mu
+        self.s2 = s2
+        self.extras = extras
+
 
 class GPRegressor():
     """Gaussian Process Regressor with prior.
@@ -56,7 +62,24 @@ class GPRegressor():
             prior_y = 0.
 
         # Fit GPModel
+        gp_y = self.sampled_y - prior_y
+
+        alpha = 10 + self.sampled_y.shape[0]/2
+        beta = (np.mean(self.sampled_y)**2 +
+                0.5*np.sum((gp_y-np.mean(gp_y))**2))
+        if beta <= 0:
+            beta = 0.
+
+        var_est = np.abs(np.mean(self.sampled_y))
+
+        for kernel in self.gpmodel.kernels:
+            if kernel.__class__.__name__ == "SqKernel":
+                kernel.bounds['var'] = (var_est, None)
+            else:
+                kernel.bounds['var'] = (0.1*var_est, None)
         self.gpmodel.fit(self.sampled_x, self.sampled_y-prior_y)
+        for kernel in self.gpmodel.kernels:
+            print(self.name, kernel.__class__.__name__, kernel.var, var_est, np.mean(self.sampled_y))
 
     def infer(self, vectors):
         """Compute posterior using prior and Gaussian process.
@@ -69,7 +92,7 @@ class GPRegressor():
             to the distribution parameters for each of the N inputs.
         """
         if self.sampled_x is None:
-            return np.zeros(1), np.zeros(1)
+            return InferResult(np.zeros(1), np.zeros(1))
             # raise RuntimeError("This model requires data before use")
 
         # Compute the prior value
@@ -84,8 +107,7 @@ class GPRegressor():
                                               self.sampled_x,
                                               self.sampled_y-prior_sampled_y)
         means += prior_y
-
-        return means, variances
+        return InferResult(means, variances, {'prior_y':prior_y})
 
     def __call__(self, vectors):
         """A call of this type runs inference."""
