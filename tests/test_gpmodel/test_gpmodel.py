@@ -18,7 +18,7 @@ def test_one_kernel_infer():
     values = np.random.random(20)
 
     # Ensure that inference of the training values gives back the same values
-    assert np.allclose(model.infer(vectors, vectors, values)[0].ravel(),
+    assert np.allclose(model.infer(vectors, vectors, values)[0],
                        values)
 
     targets = np.random.random((5, num_dims))
@@ -29,7 +29,6 @@ def test_one_kernel_infer():
     mu, s2 = model.infer(targets, vectors, values)
     assert np.allclose(mu, expected_mean)
     assert np.allclose(s2, expected_s2)
-
 
 def test_two_kernel_infer():
     """Test the inference of multiple SQE kernels.
@@ -43,7 +42,7 @@ def test_two_kernel_infer():
     values = np.random.random(20)
 
     # Ensure that inference of the training values gives back the same values
-    assert np.allclose(model.infer(vectors, vectors, values)[0].ravel(),
+    assert np.allclose(model.infer(vectors, vectors, values)[0],
                        values)
 
     targets = np.random.random((5, num_dims))
@@ -59,7 +58,6 @@ def test_two_kernel_infer():
     assert np.allclose(expected_mean, mu)
 
     model.fit(vectors, values)
-test_two_kernel_infer()
 
 def test_fit():
     """Test fit function of gpmodel

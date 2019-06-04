@@ -20,17 +20,17 @@ def test_prior():
 
     train_x = np.array([1, 2, 3, 4, 5]).reshape(-1,1)
     test_x = np.random.random((10,1))
-    test_y = test_x*3+5
-    values = train_x*3+5
+    test_y = test_x*test_x*3+5
+    values = train_x*train_x*3+5
 
     res = reg(train_x)
     assert res.mu == 0.
     assert res.s2 == 0.
     
     reg.add_samples(train_x, values)
-
-    assert np.allclose(reg(train_x).mu, values)
-    assert np.allclose(reg(test_x).mu, test_y, rtol=0.1)
+    
+    assert np.allclose(reg(train_x).mu, values.ravel())
+    assert np.allclose(reg(test_x).mu, test_y.ravel(), rtol=0.1)
 test_prior()
 
 def test_noprior():
@@ -48,4 +48,4 @@ def test_noprior():
     values = train_x*3+5
     reg.add_samples(train_x[:3], values[:3])
     reg.add_samples(train_x[3:,:], values[3:])
-    assert np.allclose(reg(train_x).mu, values, rtol=0.1)
+    assert np.allclose(reg(train_x).mu, values.ravel(), rtol=0.1)

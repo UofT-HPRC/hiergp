@@ -205,15 +205,21 @@ class GPModel():
         To support a prior mean function, the Y values must already have
         the mean values subtracted.
 
+        sampled_y gets raveled to force its dimensions
+
         Args:
             targets : NxD :math:`Z`
             sampled_x : MxD :math:`X`
             sampled_y : Mx1 :math:`Y`
+
+        Returns: Tuple
+            mu : (N,) posterior mean for each target
+            s2 : (N,) posterior variance for each target
         """
         # Ignore 'bad' names since these correspond to equation symbols
         # pylint: disable=invalid-name
-
         assert sampled_x.shape[1] == targets.shape[1]
+        assert sampled_y.ravel().shape[0] == sampled_x.shape[0]
 
         # Perform transformation as needed
         K = np.zeros((sampled_x.shape[0], sampled_x.shape[0]))
@@ -226,16 +232,17 @@ class GPModel():
                 sampled = sampled_x
                 target = targets
             K += kernel.eval(sampled, sampled)
-            Ks += kernel.eval(target, sampled)
+            if not isinstance(kernel, hiergp.kernels.NoiseKernel):
+                Ks += kernel.eval(target, sampled)
 
         # Add noise term
         K += np.eye(K.shape[0])*EPS
         L = np.linalg.cholesky(K)
 
-        Y = sampled_y
+        Y = sampled_y.ravel()
         LLY = np.linalg.solve(L, Y)
         Lk = np.linalg.solve(L, Ks.T)
-        mu = np.dot(Lk.T, LLY)
+        mu = np.dot(Lk.T, LLY).ravel()
         scales = sum(k.scale(targets) for k in self.kernels)
         s2 = scales - np.sum(Lk**2, axis=0)
         if any(s2 < 0):

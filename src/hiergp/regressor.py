@@ -37,12 +37,15 @@ class GPRegressor():
                  kernels,
                  prior=None):
         self.name = name
-        self.gpmodel = hiergp.gpmodel.GPModel(name, kernels)
+        self.gpmodel = hiergp.gpmodel.GPModel(name, kernels, num_priors=1)
         self.reg = prior
 
         # Initialize training data
         self.sampled_x = None
         self.sampled_y = np.empty((0, 1))
+
+        self._stale_factors = True
+        self._factors = None
 
     def add_samples(self, sampled_x, sampled_y):
         """Add samples to the model.
@@ -80,7 +83,7 @@ class GPRegressor():
                 kernel.bounds['var'] = (var_est, None)
             else:
                 kernel.bounds['var'] = (0.1*var_est, None)
-        self.gpmodel.fit(self.sampled_x, self.sampled_y-prior_y)
+        self.gpmodel.fit(self.sampled_x, [self.sampled_y, prior_y])
         for kernel in self.gpmodel.kernels:
             LOG.info(f"{self.name} {kernel.__class__.__name__} "
                      f"{kernel.var} {var_est} {np.mean(self.sampled_y)}")
@@ -106,12 +109,20 @@ class GPRegressor():
         else:
             prior_y = self.reg.predict(vectors)
             prior_sampled_y = self.reg.predict(self.sampled_x)
-
+        prior_y = prior_y * self.gpmodel.y_scales[0]
+        prior_sampled_y = prior_sampled_y * self.gpmodel.y_scales[0]
         means, variances = self.gpmodel.infer(vectors,
                                               self.sampled_x,
                                               self.sampled_y-prior_sampled_y)
-        means += prior_y
+        means += prior_y.ravel()
         return InferResult(means, variances, {'prior_y': prior_y})
+
+    @property
+    def factors(self):
+        if self._stale_factors:
+            self._stale_factors = False
+        else:
+            return self._factors
 
     def __call__(self, vectors):
         """A call of this type runs inference."""
