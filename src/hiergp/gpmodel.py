@@ -335,5 +335,5 @@ class GPModel():
     def get_kernel_hypers(self):
         """Return a dict containing kernel hyperparameters.
         """
-        return {kernel.__class__.__name__:kernel.get_hypers() for
+        return {kernel.__class__.__name__: kernel.get_hypers() for
                 kernel in self.kernels}
