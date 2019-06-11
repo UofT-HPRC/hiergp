@@ -331,3 +331,9 @@ class GPModel():
             kernel.put_hypers(kernel_hypers[i])
 
         self.y_scales = hypers[kernel_dims[-1]:]
+
+    def get_kernel_hypers(self):
+        """Return a dict containing kernel hyperparameters.
+        """
+        return {kernel.__class__.__name__:kernel.get_hypers() for
+                kernel in self.kernels}
