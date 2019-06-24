@@ -221,6 +221,12 @@ class GPModel():
         assert sampled_x.shape[1] == targets.shape[1]
         assert sampled_y.ravel().shape[0] == sampled_x.shape[0]
 
+        # When there is no training data, we cannot condition on any values,
+        # yield the prior
+        if sampled_x.shape[0] == 0:
+            return (np.zeros(targets.shape[0]),
+                    sum(k.scale(targets) for k in self.kernels))
+
         # Perform transformation as needed
         K = np.zeros((sampled_x.shape[0], sampled_x.shape[0]))
         Ks = np.zeros((targets.shape[0], sampled_x.shape[0]))
