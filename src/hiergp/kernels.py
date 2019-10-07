@@ -67,11 +67,19 @@ class SqKernel():
                  lbounds):
 
         self.dims = dims
-        self.bounds = dict(lengthscales=lbounds,
-                           var=(1., 1.))
+        if len(lbounds) == 2 and isinstance(lbounds[0], (float, int)):
+            lengthscale_bounds = [lbounds for _ in range(self.dims)]
+        else:
+            assert len(lbounds) == self.dims
+            assert isinstance(lbounds, list)
+            lengthscale_bounds = lbounds
 
         # Initialize hyperparameters
-        self.lengthscales = np.full(self.dims, lbounds[0])
+        self.lengthscales = [b[0] for b in lengthscale_bounds]
+        # self.lengthscales = np.full(self.dims, lbounds[0])
+
+        self.bounds = dict(lengthscales=lengthscale_bounds,
+                           var=(1., 1.))
         self.var = 1.
 
     def get_hypers(self):
@@ -83,7 +91,7 @@ class SqKernel():
         """
         return (np.concatenate(([self.var], self.lengthscales)),
                 [self.bounds['var']] +
-                [self.bounds['lengthscales'] for _ in self.lengthscales])
+                self.bounds['lengthscales'])
 
     def put_hypers(self, hypers):
         """Update all hyperparameters using a flattened vector.
