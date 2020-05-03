@@ -210,8 +210,15 @@ class LinKernel():
         self.lbounds = lbounds
 
         # Initialize hyperparameters
-        self.lengthscales = np.full(self.dims, lbounds[0])
-        self.bounds = dict(lengthscales=lbounds,
+        if len(lbounds) == 2 and isinstance(lbounds[0], (float, int)):
+            lengthscale_bounds = [lbounds for _ in range(self.dims)]
+        else:
+            assert len(lbounds) == self.dims
+            assert isinstance(lbounds, list)
+            lengthscale_bounds = lbounds
+        self.lengthscales = [b[0] for b in lengthscale_bounds]
+        #self.lengthscales = np.full(self.dims, lbounds[0])
+        self.bounds = dict(lengthscales=lengthscale_bounds,
                            var=(1., 1.))
         self.var = 1.
 
@@ -224,7 +231,8 @@ class LinKernel():
         """
         return (np.concatenate(([self.var], self.lengthscales)),
                 [self.bounds['var']] +
-                [self.bounds['lengthscales'] for _ in self.lengthscales])
+                self.bounds['lengthscales'])
+                #[self.bounds['lengthscales'] for _ in self.lengthscales])
 
     def put_hypers(self, hypers):
         """Update all hyperparameters using a flattened vector.
